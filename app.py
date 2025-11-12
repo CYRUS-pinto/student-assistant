@@ -13,8 +13,8 @@ matplotlib.use('Agg')
 app = Flask(__name__)
 
 # --- NEW: Secret key for session management ---
-app.config['SECRET_KEY'] = 'your_super_secret_key_12345'
-ADMIN_PASSWORD = 'password1234'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your_super_secret_key_12345')
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'password1234')
 
 # --- Configuration ---
 DB_FILE = 'db.json'
@@ -540,4 +540,4 @@ if __name__ == '__main__':
     # Load the database from db.json
     load_data()
     
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)
