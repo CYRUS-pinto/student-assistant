@@ -71,17 +71,22 @@ A comprehensive Flask-based student dashboard application for managing academic 
 ## Configuration
 
 ### Environment Variables
-- `SECRET_KEY`: Flask session secret key (default: 'your_super_secret_key_12345')
-- `ADMIN_PASSWORD`: Admin portal password (default: 'password1234')
+- `SECRET_KEY`: Flask session secret key (auto-generated in development if not set)
+- `ADMIN_PASSWORD`: Admin portal password (defaults to 'admin123' if not set - **CHANGE THIS IN PRODUCTION**)
+
+**Security Note**: The app will run in development with default values, but you should set these environment variables before deploying to production. The app automatically displays warnings when using fallback values.
 
 ### Development
-The app runs on `0.0.0.0:5000` for Replit environment compatibility.
+- The app runs on `0.0.0.0:5000` for Replit environment compatibility
+- Debug mode is automatically enabled in development
+- Auto-reloads on code changes
+- Shows helpful warnings for missing environment variables
 
 ### Production Deployment
-Configured with Gunicorn for autoscale deployment:
-```
-gunicorn --bind=0.0.0.0:5000 --reuse-port app:app
-```
+- Configured with Gunicorn for autoscale deployment
+- Debug mode is automatically disabled when `REPL_DEPLOYMENT=1`
+- Command: `gunicorn --bind=0.0.0.0:5000 --reuse-port app:app`
+- **Important**: Set SECRET_KEY and ADMIN_PASSWORD environment variables before publishing!
 
 ## API Endpoints
 
@@ -111,9 +116,13 @@ Uses `db.json` for persistent storage of:
 - **2025-11-12**: Migrated to Replit environment
   - Added gunicorn for production deployment
   - Configured to run on 0.0.0.0:5000
-  - Added environment variable support for SECRET_KEY and ADMIN_PASSWORD
+  - Added environment variable support with smart fallbacks for SECRET_KEY and ADMIN_PASSWORD
+  - Auto-generated SECRET_KEY in development mode
+  - Production detection via REPL_DEPLOYMENT environment variable
+  - Debug mode automatically disabled in production
   - Created .gitignore for Python project
   - Set up workflow for automatic restart
+  - Cleaned up requirements.txt
 
 ## User Preferences
 None specified yet.

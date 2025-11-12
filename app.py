@@ -1,7 +1,8 @@
 from flask import Flask, render_template, request, redirect, url_for, send_from_directory, session, flash, jsonify
 import datetime
 import json
-import os # --- File Handling (Unit II) ---
+import os
+import secrets
 
 # --- Matplotlib Imports (Unit-IV) ---
 import matplotlib
@@ -12,9 +13,17 @@ matplotlib.use('Agg')
 
 app = Flask(__name__)
 
-# --- NEW: Secret key for session management ---
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your_super_secret_key_12345')
-ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'password1234')
+# --- Secret key for session management ---
+
+SECRET_KEY = os.environ.get('SECRET_KEY')
+if not SECRET_KEY:
+    print("WARNING: SECRET_KEY not set. Using generated key for development only.")
+    SECRET_KEY = secrets.token_hex(32)
+app.config['SECRET_KEY'] = SECRET_KEY
+
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
+if ADMIN_PASSWORD == 'admin123':
+    print("WARNING: ADMIN_PASSWORD not set. Using default 'admin123' - change this in production!")
 
 # --- Configuration ---
 DB_FILE = 'db.json'
@@ -540,4 +549,5 @@ if __name__ == '__main__':
     # Load the database from db.json
     load_data()
     
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    is_production = os.environ.get('REPL_DEPLOYMENT') == '1'
+    app.run(host='0.0.0.0', port=5000, debug=(not is_production))
