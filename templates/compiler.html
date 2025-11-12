@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <title>Python Compiler</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- NEW: Load Pyodide (the in-browser Python) -->
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.26.1/full/pyodide.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'inter': ['Inter', 'sans-serif'],
+                    },
+                },
+            },
+        }
+    </script>
+    <style>
+        /* Custom scrollbar for dark mode */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1f2937; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+        
+        /* NEW: Styles for the Colab-style cell */
+        #code-cell {
+            background-color: #2d2d2d; /* Colab's cell background */
+            border: 1px solid #424242;
+            border-radius: 8px;
+            padding: 16px;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        
+        #code-editor {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: transparent;
+            color: #e2e8f0; /* gray-300 */
+            width: 100%;
+            height: 300px;
+            resize: vertical;
+            border: none;
+            outline: none;
+        }
+        
+        /* NEW: Colab-style Run Button */
+        #run-btn {
+            background-color: #383838;
+            border: 1px solid #4a4a4a;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        #run-btn:hover {
+            background-color: #4a4a4a;
+        }
+        #run-btn.running {
+            cursor: not-allowed;
+        }
+        
+        /* NEW: Console Output Area */
+        #output-area {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #1e1e1e; /* Colab's output background */
+            color: #cbd5e1; /* slate-300 */
+            border: 1px solid #424242;
+            border-top: none; /* Attach to cell */
+            border-radius: 0 0 8px 8px;
+            height: 30vh;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            padding: 16px;
+            margin-top: -1px; /* Overlap border */
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-inter dark:bg-gray-900 dark:text-gray-200">
+
+    <header class="bg-blue-600 text-white shadow-lg sticky top-0 z-20">
+        <div class="container mx-auto px-6 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-4">
+                <button id="menu-btn" class="p-2 rounded-lg hover:bg-blue-500 focus:outline-none focus:bg-blue-500">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                    </svg>
+                </button>
+                <h1 class="text-2xl font-bold">Python Compiler</h1>
+            </div>
+            
+            <button id="theme-toggle" class="p-2 rounded-lg hover:bg-blue-500 focus:outline-none focus:bg-blue-500">
+                <svg id="theme-icon-dark" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+                <svg id="theme-icon-light" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m8.66-15.66l-.7.7M4.04 19.96l-.7.7M21 12h-1M4 12H3m16.96-7.96l-.7.7M7.04 7.04l-.7.7m12.72 0l.7.7M4.04 4.04l.7.7M12 18a6 6 0 100-12 6 6 0 000 12z"></path></svg>
+            </button>
+        </div>
+    </header>
+
+    <aside id="sidebar" class="bg-gray-800 text-white w-64 h-full fixed top-0 left-0 z-30 transform -translate-x-full transition-transform duration-300 ease-in-out">
+        <div class="p-5 flex justify-between items-center border-b border-gray-700">
+            <h2 class="text-xl font-bold">Navigation</h2>
+            <button id="close-btn" class="p-2 rounded-full hover:bg-gray-700 focus:outline-none">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+        <nav class="py-4">
+            <a href="/" class="block py-2.5 px-5 font-semibold hover:bg-gray-700">Home</a>
+            <a href="/calendar" class="block py-2.5 px-5 font-semibold hover:bg-gray-700">Calendar</a>
+            <!-- Active link for compiler -->
+            <a href="/compiler" class="block py-2.5 px-5 font-semibold bg-gray-900">Python Compiler</a>
+            
+            <h3 class="py-2.5 px-5 text-sm font-semibold text-gray-400 uppercase tracking-wider">Subjects</h3>
+            {% for subject in all_subjects %}
+            <a href="/subject/{{ subject }}" class="block py-2.5 px-5 hover:bg-gray-700">{{ subject }}</a>
+            {% endfor %}
+        </nav>
+    </aside>
+    
+    <div id="overlay" class="fixed inset-0 bg-black opacity-0 z-20 transition-opacity duration-300 ease-in-out" style="display: none;"></div>
+
+    <main class="container mx-auto px-4 sm:px-6 py-8">
+        
+        <!-- Loading Message -->
+        <div id="loading-message" class="text-center p-8 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
+            <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">Initializing Python Environment...</h2>
+            <p class="text-gray-600 dark:text-gray-300 mb-6">This may take a moment. We're loading **Pandas, NumPy, and Matplotlib** into your browser.</p>
+            <!-- Simple spinner -->
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+        </div>
+
+        <!-- Compiler UI (Hidden by default) -->
+        <div id="compiler-ui" class="hidden">
+            
+            <!-- NEW: Colab-style cell -->
+            <div id="code-cell-container">
+                <div id="code-cell">
+                    <button id="run-btn">
+                        <!-- Play Icon -->
+                        <svg id="play-icon" class="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
+                        <!-- Spinner Icon (hidden) -->
+                        <svg id="spinner-icon" class="w-5 h-5 text-gray-400 animate-spin hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </button>
+                    <textarea id="code-editor" class="w-full p-2">
+#Type Your Code Here</textarea>
+                </div>
+                <pre id="output-area" class="hidden"></pre>
+            </div>
+            
+            <!-- Plot Output Area -->
+            <h3 class="text-2xl font-bold text-gray-800 dark:text-gray-100 mt-6 mb-4">Plot Output</h3>
+            <div id="plot-area" class="p-4 bg-white dark:bg-gray-700 rounded-lg shadow-inner">
+                <p class="text-gray-500 dark:text-gray-400">Matplotlib plots will appear here.</p>
+            </div>
+
+        </div>
+    </main>
+    
+    <script>
+        // --- Sidebar & Dark Mode Controls (Same as before) ---
+        const menuBtn = document.getElementById('menu-btn');
+        const closeBtn = document.getElementById('close-btn');
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('overlay');
+
+        function openSidebar() {
+            sidebar.classList.remove('-translate-x-full');
+            overlay.style.display = 'block';
+            setTimeout(() => overlay.classList.add('opacity-50'), 10);
+        }
+
+        function closeSidebar() {
+            sidebar.classList.add('-translate-x-full');
+            overlay.classList.remove('opacity-50');
+            setTimeout(() => overlay.style.display = 'none', 300);
+        }
+
+        menuBtn.addEventListener('click', openSidebar);
+        closeBtn.addEventListener('click', closeSidebar);
+        overlay.addEventListener('click', closeSidebar);
+
+        const themeToggle = document.getElementById('theme-toggle');
+        const darkIcon = document.getElementById('theme-icon-dark');
+        const lightIcon = document.getElementById('theme-icon-light');
+
+        if (localStorage.getItem('theme') === 'light') {
+            document.documentElement.classList.remove('dark');
+            lightIcon.classList.remove('hidden');
+        } else {
+            document.documentElement.classList.add('dark');
+            darkIcon.classList.remove('hidden');
+        }
+
+        themeToggle.addEventListener('click', () => {
+            if (document.documentElement.classList.contains('dark')) {
+                document.documentElement.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+                lightIcon.classList.remove('hidden');
+                darkIcon.classList.add('hidden');
+            } else {
+                document.documentElement.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+                darkIcon.classList.remove('hidden');
+                lightIcon.classList.add('hidden');
+            }
+        });
+
+        // --- NEW: Pyodide Compiler Logic ---
+
+        const loadingMessage = document.getElementById('loading-message');
+        const compilerUI = document.getElementById('compiler-ui');
+        const codeEditor = document.getElementById('code-editor');
+        const runBtn = document.getElementById('run-btn');
+        const playIcon = document.getElementById('play-icon');
+        const spinnerIcon = document.getElementById('spinner-icon');
+        const outputArea = document.getElementById('output-area');
+        const plotArea = document.getElementById('plot-area');
+
+        let pyodide = null;
+
+        async function main() {
+            try {
+                // Load Pyodide
+                pyodide = await loadPyodide();
+                
+                // Show "Loading packages"
+                loadingMessage.querySelector('h2').textContent = 'Loading Packages...';
+                loadingMessage.querySelector('p').textContent = 'This will take a few extra seconds on first load.';
+
+                // Load Pandas, NumPy, and Matplotlib
+                await pyodide.loadPackage(['pandas', 'numpy', 'matplotlib']);
+
+                // Hide loading message and show compiler
+                loadingMessage.classList.add('hidden');
+                compilerUI.classList.remove('hidden');
+                
+                // Set up Pyodide to print to our output area
+                pyodide.setStdout({ 
+                    batched: (msg) => {
+                        outputArea.textContent += msg + '\n';
+                        outputArea.scrollTop = outputArea.scrollHeight;
+                    }
+                });
+                pyodide.setStderr({
+                    batched: (msg) => {
+                        outputArea.innerHTML += `<span class="text-red-400">${msg}</span>\n`;
+                        outputArea.scrollTop = outputArea.scrollHeight;
+                    }
+                });
+                
+                // Special patch for Matplotlib to render plots to our div
+                await pyodide.runPythonAsync(`
+                    import matplotlib.pyplot as plt
+                    from js import document
+                    import io, base64
+
+                    # This tells matplotlib to render plots as SVGs
+                    plt.rcParams['figure.formats'] = ['svg']
+
+                    def custom_show(*args, **kwargs):
+                        # Clear the plot area
+                        plot_div = document.getElementById("plot-area")
+                        plot_div.innerHTML = ""
+                        
+                        # Save all active figures to SVG strings
+                        for fig_num in plt.get_fignums():
+                            fig = plt.figure(fig_num)
+                            
+                            # Save figure to a string
+                            svg_str_io = io.StringIO()
+                            fig.savefig(svg_str_io, format='svg')
+                            svg_str_io.seek(0)
+                            svg_str = svg_str_io.read()
+
+                            # Inject style to make SVG visible in dark mode
+                            svg_str = svg_str.replace(
+                                '<svg ',
+                                '<svg style="background-color:white;" '
+                            )
+                            
+                            # Add the SVG to the plot area
+                            plot_div.innerHTML += svg_str
+                            
+                            # Clear the figure after getting its content
+                            plt.close(fig)
+                        
+                        plot_div.style.display = 'block'
+
+                    # Overwrite the default show() function
+                    plt.show = custom_show
+                `);
+
+
+            } catch (err) {
+                loadingMessage.querySelector('h2').textContent = 'Error Loading Environment';
+                loadingMessage.querySelector('p').textContent = err.message;
+                loadingMessage.querySelector('div').classList.add('hidden');
+            }
+        }
+        
+        // Run the main async function
+        main();
+
+        // Add click listener to the run button
+        runBtn.addEventListener('click', async () => {
+            if (!pyodide) {
+                outputArea.textContent = 'Pyodide is still loading. Please wait...';
+                return;
+            }
+            
+            const code = codeEditor.value;
+            outputArea.textContent = 'Running code...\n';
+            outputArea.scrollTop = 0;
+            outputArea.classList.remove('hidden'); // Show output area
+            plotArea.innerHTML = '<p class="text-gray-500 dark:text-gray-400">Matplotlib plots will appear here.</p>'; // Clear old plot
+
+            // Show spinner, hide play icon
+            runBtn.disabled = true;
+            runBtn.classList.add('running');
+            playIcon.classList.add('hidden');
+            spinnerIcon.classList.remove('hidden');
+
+            try {
+                // Run the Python code
+                await pyodide.runPythonAsync(code);
+            } catch (err) {
+                // Catch and display runtime errors
+                outputArea.innerHTML += `<span class="text-red-400">${err}</span>\n`;
+                outputArea.scrollTop = outputArea.scrollHeight;
+            } finally {
+                // Hide spinner, show play icon
+                runBtn.disabled = false;
+                runBtn.classList.remove('running');
+                playIcon.classList.remove('hidden');
+                spinnerIcon.classList.add('hidden');
+            }
+        });
+
+    </script>
+</body>
+</html>

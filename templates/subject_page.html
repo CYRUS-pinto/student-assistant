@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ subject_name }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'inter': ['Inter', 'sans-serif'],
+                    },
+                },
+            },
+        }
+    </script>
+    <style>
+        /* Context menu */
+        #custom-context-menu {
+            position: absolute;
+            display: none;
+            z-index: 1000;
+            width: 160px;
+        }
+        /* Style for selected files */
+        .file-item.selected {
+            background-color: #3b82f6 !important; /* Blue background */
+            color: white !important;
+            box-shadow: 0 0 0 3px #2563eb; /* Blue ring */
+        }
+        .file-item.selected .truncate {
+            color: white !important;
+        }
+        .file-item.selected svg {
+            color: white !important;
+        }
+        
+        /* --- FIX FOR SCROLLING --- */
+        #modal-content {
+            background-color: #111827; /* gray-900 */
+            /* Add this to allow scrolling on touch devices */
+            -webkit-overflow-scrolling: touch;
+            overflow-y: auto; /* Ensure overflow is auto */
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-inter dark:bg-gray-900 dark:text-gray-200">
+
+    <!-- Header (Normal) -->
+    <header class="bg-blue-600 text-white shadow-lg sticky top-0 z-20">
+        <div id="header-normal" class="container mx-auto px-6 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-4 overflow-hidden">
+                <button id="menu-btn" class="p-2 rounded-lg hover:bg-blue-500 focus:outline-none focus:bg-blue-500 flex-shrink-0">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                </button>
+                <h1 class="text-2xl font-bold truncate">{{ subject_name }}</h1>
+            </div>
+            
+            <div class="flex items-center gap-2 flex-shrink-0">
+                <!-- Select Button -->
+                <button id="select-btn" class="p-2 rounded-lg hover:bg-blue-500 focus:outline-none focus:bg-blue-500">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                </button>
+                <button id="theme-toggle" class="p-2 rounded-lg hover:bg-blue-500 focus:outline-none focus:bg-blue-500">
+                    <svg id="theme-icon-dark" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+                    <svg id="theme-icon-light" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m8.66-15.66l-.7.7M4.04 19.96l-.7.7M21 12h-1M4 12H3m16.96-7.96l-.7.7M7.04 7.04l-.7.7m12.72 0l.7.7M4.04 4.04l.7.7M12 18a6 6 0 100-12 6 6 0 000 12z"></path></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Header (Selection Mode) -->
+        <div id="header-selection" class="container mx-auto px-6 py-4 flex justify-between items-center hidden">
+            <div class="flex items-center gap-4">
+                <button id="cancel-select-btn" class="p-2 rounded-lg hover:bg-blue-500 focus:outline-none focus:bg-blue-500">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+                <h1 id="selection-count" class="text-2xl font-bold">1 Selected</h1>
+            </div>
+        </div>
+    </header>
+
+    <!-- Sidebar -->
+    <aside id="sidebar" class="bg-gray-800 text-white w-64 h-full fixed top-0 left-0 z-30 transform -translate-x-full transition-transform duration-300 ease-in-out">
+        <div class="p-5 flex justify-between items-center border-b border-gray-700">
+            <h2 class="text-xl font-bold">Navigation</h2>
+            <button id="close-btn" class="p-2 rounded-full hover:bg-gray-700 focus:outline-none">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+        <nav class="py-4">
+            <a href="/" class="block py-2.5 px-5 font-semibold hover:bg-gray-700">Home</a>
+            <a href="/calendar" class="block py-2.5 px-5 font-semibold hover:bg-gray-700">Calendar</a>
+            <!-- NEW: Compiler Link -->
+            <a href="/compiler" class="block py-2.5 px-5 font-semibold hover:bg-gray-700">Python Compiler</a>
+            
+            <h3 class="py-2.5 px-5 text-sm font-semibold text-gray-400 uppercase tracking-wider">Subjects</h3>
+            {% for subject in all_subjects %}
+            <a href="/subject/{{ subject }}" class="block py-2.5 px-5 hover:bg-gray-700 
+                {% if subject == subject_name %} bg-gray-900 font-bold {% endif %}">
+                {{ subject }}
+            </a>
+            {% endfor %}
+        </nav>
+    </aside>
+    
+    <div id="overlay" class="fixed inset-0 bg-black opacity-0 z-20 transition-opacity duration-300 ease-in-out" style="display: none;"></div>
+
+    <main class="container mx-auto px-4 sm:px-6 py-8 pb-24"> <!-- Added padding-bottom for selection bar -->
+        <div class="bg-white rounded-lg shadow-lg p-4 sm:p-6 dark:bg-gray-800">
+            
+            <h2 class="text-3xl font-bold text-gray-800 mb-6 dark:text-gray-100">Files for {{ subject_name }}</h2>
+
+            <!-- Grid layout for files. 2 cols on mobile, 3 on tablet, 4 on desktop -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                {% for file in subject_files %}
+                <!-- Updated layout for a "card" style -->
+                <div class="file-item flex flex-col items-center text-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg shadow cursor-pointer hover:shadow-md hover:bg-gray-100 dark:hover:bg-gray-600 transition-all"
+                     data-filename="{{ file }}"
+                     data-view-url="/view/{{ subject_name }}/{{ file }}"
+                     data-download-url="/download/{{ subject_name }}/{{ file }}">
+                    
+                    <svg class="w-16 h-16 text-blue-500 dark:text-blue-400 mb-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    
+                    <!-- word-break-all to handle long filenames -->
+                    <span class="font-semibold text-gray-800 dark:text-gray-100 text-sm w-full break-words">{{ file }}</span>
+                </div>
+                {% endfor %}
+            </div> <!-- End of grid -->
+
+            {% if not subject_files %}
+            <p class="text-gray-500 dark:text-gray-400 text-lg col-span-full">
+                No files found for this subject.
+                <br>
+                Go to the <a href="/admin_portal" class="text-blue-500 hover:underline">Admin Portal</a> to upload files.
+            </p>
+            {% endif %}
+        </div>
+    </main>
+
+    <!-- File Viewer Modal -->
+    <div id="file-viewer-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4" style="display: none;">
+        <div class="bg-gray-800 rounded-lg shadow-2xl w-full max-w-4xl h-[90vh] flex flex-col">
+            <div class="flex items-center justify-between p-4 border-b border-gray-700">
+                <h3 id="modal-filename" class="text-lg font-semibold text-white truncate">Viewing file...</h3>
+                <button id="modal-close-btn" class="text-gray-400 hover:text-white flex-shrink-0">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <!-- THIS IS THE "CLOUD" VIEWER. Added -webkit-overflow-scrolling: touch -->
+            <div id="modal-content" class="flex-1 p-0 overflow-auto flex items-center justify-center bg-gray-900" style="-webkit-overflow-scrolling: touch;">
+                <!-- JS will fill this -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Context Menu (hidden, for desktop right-click) -->
+    <div id="custom-context-menu" class="bg-white dark:bg-gray-700 rounded-lg shadow-xl py-2 border dark:border-gray-600">
+        <button id="menu-view" class="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+            View
+        </button>
+        <a id="menu-download" href="#" download class="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+            Download
+        </a>
+        <button id="menu-share" class="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12s-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z"></path></svg>
+            Share...
+        </button>
+    </div>
+
+    <!-- SELECTION ACTION BAR -->
+    <div id="selection-bar" class="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-700 shadow-lg p-4 z-40 transform translate-y-full transition-transform duration-300 ease-in-out flex justify-center gap-6">
+        <button id="selection-share" class="flex flex-col items-center text-blue-600 dark:text-blue-400 disabled:opacity-50" disabled>
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12s-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z"></path></svg>
+            <span class="text-sm">Share</span>
+        </button>
+        <button id="selection-download" class="flex flex-col items-center text-blue-600 dark:text-blue-400 disabled:opacity-50" disabled>
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+            <span class="text-sm">Download</span>
+        </button>
+    </div>
+
+    <!-- NEW: Share Links Modal -->
+    <div id="share-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4" style="display: none;">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-2xl w-full max-w-lg">
+            <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Shareable Links</h3>
+                <button id="share-modal-close-btn" class="text-gray-400 hover:text-gray-600 dark:hover:text-white">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="p-6">
+                <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">Copy these links to share your files. These links will only work if your server is running.</p>
+                <textarea id="share-links-textarea" rows="5" readonly
+                          class="w-full p-2 border border-gray-300 rounded-md bg-gray-50 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 focus:outline-none"></textarea>
+                <button id="copy-links-btn" class="mt-4 w-full bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow hover:bg-blue-700 transition">
+                    Copy to Clipboard
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        // --- State Variables ---
+        let isSelectMode = false;
+        const selectedFiles = new Set();
+        let pressTimer = null; // Timer for long-press
+        
+        // --- Sidebar & Dark Mode ---
+        const menuBtn = document.getElementById('menu-btn');
+        const closeBtn = document.getElementById('close-btn');
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('overlay');
+
+        function openSidebar() {
+            sidebar.classList.remove('-translate-x-full');
+            overlay.style.display = 'block';
+            setTimeout(() => overlay.classList.add('opacity-50'), 10);
+        }
+
+        function closeSidebar() {
+            sidebar.classList.add('-translate-x-full');
+            overlay.classList.remove('opacity-50');
+            setTimeout(() => overlay.style.display = 'none', 300);
+        }
+
+        menuBtn.addEventListener('click', openSidebar);
+        closeBtn.addEventListener('click', closeSidebar);
+        overlay.addEventListener('click', closeSidebar);
+
+        const themeToggle = document.getElementById('theme-toggle');
+        const darkIcon = document.getElementById('theme-icon-dark');
+        const lightIcon = document.getElementById('theme-icon-light');
+
+        if (localStorage.getItem('theme') === 'light') {
+            document.documentElement.classList.remove('dark');
+            lightIcon.classList.remove('hidden');
+        } else {
+            document.documentElement.classList.add('dark');
+            darkIcon.classList.remove('hidden');
+        }
+
+        themeToggle.addEventListener('click', () => {
+            if (document.documentElement.classList.contains('dark')) {
+                document.documentElement.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+                lightIcon.classList.remove('hidden');
+                darkIcon.classList.add('hidden');
+            } else {
+                document.documentElement.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+                darkIcon.classList.remove('hidden');
+                lightIcon.classList.add('hidden');
+            }
+        });
+
+        // --- File Viewer Modal ---
+        const modal = document.getElementById('file-viewer-modal');
+        const modalCloseBtn = document.getElementById('modal-close-btn');
+        const modalFilename = document.getElementById('modal-filename');
+        const modalContent = document.getElementById('modal-content');
+
+        function showModal(viewUrl, filename) {
+            const extension = filename.split('.').pop().toLowerCase();
+            modalFilename.textContent = filename; // Set filename in modal
+            
+            // Get the full, absolute URL for the file
+            const absoluteViewUrl = window.location.origin + viewUrl;
+
+            if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(extension)) {
+                // View images directly
+                modalContent.innerHTML = `<img src="${absoluteViewUrl}" alt="${filename}" class="max-w-full max-h-full object-contain">`;
+            } 
+            // --- PDF/PPT/DOC FIX: Use Google Viewer for all ---
+            else if (['pdf', 'ppt', 'pptx', 'doc', 'docx', 'xls', 'xlsx'].includes(extension)) {
+                // --- THIS IS THE "GOOGLE DRIVE" CLOUD VIEWER ---
+                const googleViewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(absoluteViewUrl)}&embedded=true`;
+                modalContent.innerHTML = `<iframe src="${googleViewerUrl}" class="w-full h-full border-0"></iframe>`;
+            } else {
+                // Fallback for ZIP, TXT, etc.
+                const downloadUrl = viewUrl.replace('/view/', '/download/');
+                modalContent.innerHTML = `
+                    <div class="text-center text-gray-400 p-4">
+                        <svg class="w-24 h-24 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        <h3 class="text-xl font-semibold mb-2">Preview not available</h3>
+                        <p class="mb-4">This file type (.${extension}) can't be viewed in the browser.</p>
+                        <a href="${downloadUrl}" class="mt-4 inline-block bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow hover:bg-blue-700 transition">
+                            Download File
+                        </a>
+                    </div>
+                `;
+            }
+            modal.style.display = 'flex';
+        }
+
+        function closeModal() {
+            modal.style.display = 'none';
+            modalContent.innerHTML = '';
+            modalFilename.textContent = '';
+        }
+
+        modalCloseBtn.addEventListener('click', closeModal);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal();
+        });
+
+        // --- Context Menu ---
+        const contextMenu = document.getElementById('custom-context-menu');
+        const menuView = document.getElementById('menu-view');
+        const menuDownload = document.getElementById('menu-download');
+        const menuShare = document.getElementById('menu-share');
+        
+        function hideContextMenu() { 
+            contextMenu.style.display = 'none'; 
+        }
+        
+        function showContextMenu(event, fileItem) {
+            if (isSelectMode) return; // Don't show if in select mode
+            event.preventDefault();
+            const viewUrl = fileItem.dataset.viewUrl;
+            const downloadUrl = fileItem.dataset.downloadUrl;
+            const filename = fileItem.dataset.filename;
+            menuView.dataset.viewUrl = viewUrl;
+            menuView.dataset.filename = filename;
+            menuDownload.href = downloadUrl;
+            menuShare.dataset.viewUrl = viewUrl; // Use viewUrl for sharing
+            menuShare.dataset.filename = filename;
+            // --- NEW: Always show the share button for our link modal ---
+            menuShare.style.display = 'flex';
+            contextMenu.style.left = `${event.pageX}px`;
+            contextMenu.style.top = `${event.pageY}px`;
+            contextMenu.style.display = 'block';
+        }
+        
+        menuView.addEventListener('click', (e) => {
+            showModal(e.currentTarget.dataset.viewUrl, e.currentTarget.dataset.filename);
+            hideContextMenu();
+        });
+        
+        // --- NEW: SHARE BUTTON LOGIC (Single File) ---
+        // This now opens the link-sharing modal
+        menuShare.addEventListener('click', (e) => {
+            const viewUrl = window.location.origin + e.currentTarget.dataset.viewUrl;
+            const filename = e.currentTarget.dataset.filename;
+            shareLinksTextarea.value = `${filename}:\n${viewUrl}`;
+            shareModal.style.display = 'flex';
+            copyLinksBtn.textContent = 'Copy to Clipboard';
+            hideContextMenu();
+        });
+        
+        window.addEventListener('click', hideContextMenu);
+        
+        
+        // --- MULTI-SELECT LOGIC (with Long-Press Fix) ---
+        const selectBtn = document.getElementById('select-btn');
+        const cancelSelectBtn = document.getElementById('cancel-select-btn');
+        const headerNormal = document.getElementById('header-normal');
+        const headerSelection = document.getElementById('header-selection');
+        const selectionBar = document.getElementById('selection-bar');
+        const selectionCount = document.getElementById('selection-count');
+        const selectionShare = document.getElementById('selection-share');
+        const selectionDownload = document.getElementById('selection-download');
+        
+        function enterSelectMode() {
+            isSelectMode = true;
+            headerNormal.classList.add('hidden');
+            headerSelection.classList.remove('hidden');
+            selectionBar.classList.remove('translate-y-full');
+            updateSelectionUI();
+            hideContextMenu();
+        }
+
+        function exitSelectMode() {
+            isSelectMode = false;
+            headerNormal.classList.remove('hidden');
+            headerSelection.classList.add('hidden');
+            selectionBar.classList.add('translate-y-full');
+            selectedFiles.clear();
+            document.querySelectorAll('.file-item.selected').forEach(item => {
+                item.classList.remove('selected');
+            });
+            updateSelectionUI();
+        }
+        
+        function updateSelectionUI() {
+            const count = selectedFiles.size;
+            if (count === 0) {
+                selectionCount.textContent = 'Select items';
+                selectionShare.disabled = true;
+                selectionDownload.disabled = true;
+            } else {
+                selectionCount.textContent = `${count} Selected`;
+                selectionShare.disabled = false; // Always enable share for link list
+                selectionDownload.disabled = false;
+            }
+        }
+        
+        function toggleItemSelection(fileItem) {
+            const filename = fileItem.dataset.filename;
+            if (selectedFiles.has(filename)) {
+                selectedFiles.delete(filename);
+                fileItem.classList.remove('selected');
+            } else {
+                selectedFiles.add(filename);
+                fileItem.classList.add('selected');
+            }
+            updateSelectionUI();
+        }
+
+        // --- Event Listeners for Select Mode ---
+        selectBtn.addEventListener('click', enterSelectMode);
+        cancelSelectBtn.addEventListener('click', exitSelectMode);
+        
+        document.querySelectorAll('.file-item').forEach(item => {
+            let pressTimer = null;
+            let isLongPress = false;
+
+            // --- NEW: Touch-based long-press ---
+            item.addEventListener('touchstart', (e) => {
+                if (isSelectMode) return;
+                
+                isLongPress = false; 
+                pressTimer = setTimeout(() => {
+                    // e.preventDefault(); // Don't prevent default, allow scroll
+                    isLongPress = true;
+                    if (!isSelectMode) {
+                        enterSelectMode();
+                    }
+                    toggleItemSelection(item);
+                }, 500); // 500ms = long press
+            }, { passive: true }); // Use passive true to allow scrolling
+
+            item.addEventListener('touchend', (e) => {
+                clearTimeout(pressTimer);
+                // If it was a long press, prevent the click event
+                if(isLongPress) {
+                    e.preventDefault();
+                }
+            });
+
+            item.addEventListener('touchmove', () => {
+                clearTimeout(pressTimer); // Cancel long press if scrolling
+            });
+
+            // --- Original Click Listener ---
+            item.addEventListener('click', (e) => {
+                if (isLongPress) {
+                    // if it was a long press, toggle selection (already done) and stop
+                    isLongPress = false; // reset flag
+                    return;
+                }
+                
+                if (isSelectMode) {
+                    toggleItemSelection(item);
+                } else {
+                    // Normal behavior: open modal
+                    showModal(item.dataset.viewUrl, item.dataset.filename);
+                }
+            });
+            
+            // --- Original Context Menu for Desktop ---
+            item.addEventListener('contextmenu', (e) => {
+                e.preventDefault(); // Always prevent default menu
+                
+                // Show custom context menu OR enter select mode
+                // For simplicity, let's make desktop right-click also enter select mode
+                if (!isSelectMode) {
+                    enterSelectMode();
+                }
+                toggleItemSelection(item);
+            });
+        });
+        
+        // --- NEW: Share Modal Logic ---
+        const shareModal = document.getElementById('share-modal');
+        const shareModalCloseBtn = document.getElementById('share-modal-close-btn');
+        const shareLinksTextarea = document.getElementById('share-links-textarea');
+        const copyLinksBtn = document.getElementById('copy-links-btn');
+        
+        function closeShareModal() {
+            shareModal.style.display = 'none';
+            shareLinksTextarea.value = '';
+        }
+        
+        shareModalCloseBtn.addEventListener('click', closeShareModal);
+        shareModal.addEventListener('click', (e) => {
+            if(e.target === shareModal) closeShareModal();
+        });
+        
+        copyLinksBtn.addEventListener('click', () => {
+            shareLinksTextarea.select();
+            document.execCommand('copy'); // This is safer in iframes
+            copyLinksBtn.textContent = 'Copied!';
+            setTimeout(() => { copyLinksBtn.textContent = 'Copy to Clipboard'; }, 2000);
+        });
+        
+
+        // --- Selection Bar Action Listeners ---
+        selectionDownload.addEventListener('click', () => {
+            document.querySelectorAll('.file-item.selected').forEach((item, index) => {
+                setTimeout(() => {
+                    const a = document.createElement('a');
+                    a.href = item.dataset.downloadUrl;
+                    a.download = item.dataset.filename;
+                    a.click();
+                }, index * 300); // 300ms delay
+            });
+        });
+        
+        // --- NEW: Updated Share Button Logic ---
+        selectionShare.addEventListener('click', async () => {
+            const selectedItems = document.querySelectorAll('.file-item.selected');
+            const filesToShare = [];
+            const filenames = [];
+            
+            selectedItems.forEach(item => {
+                filesToShare.push(window.location.origin + item.dataset.viewUrl);
+                filenames.push(item.dataset.filename);
+            });
+            
+            // --- THIS IS THE NEW LOGIC ---
+            // It will ALWAYS open the link modal, no matter what.
+            shareLinksTextarea.value = filenames.map((name, index) => {
+                return `${name}:\n${filesToShare[index]}`;
+            }).join('\n\n');
+            
+            shareModal.style.display = 'flex';
+            copyLinksBtn.textContent = 'Copy to Clipboard';
+        });
+
+    </script>
+</body>
+</html>

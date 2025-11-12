@@ -1,0 +1,17 @@
+{
+    "deadlines": [
+        {
+            "id": 2,
+            "title": "Project Deadline",
+            "date": "2025-11-12",
+            "completed": false
+        },
+        {
+            "id": 11,
+            "title": "English letter assignment ",
+            "date": "2025-11-18",
+            "completed": false
+        }
+    ],
+    "deadline_id_counter": 12
+}
